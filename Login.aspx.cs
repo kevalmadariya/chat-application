@@ -16,10 +16,11 @@ namespace ChatApplication
 
         protected void setsession_Click(object sender, EventArgs e)
         {
-            string uniqueTabId = Guid.NewGuid().ToString();
-            Session["user_id"+uniqueTabId] = lbluser.Text;//unique session store
-            Session["friend_id"+uniqueTabId] = lblfriend.Text;
-            Response.Redirect("chat.aspx?tabId=" + uniqueTabId);
+            //string uniqueTabId = Guid.NewGuid().ToString();
+            Session["user_id"] = lbluser.Text;//unique session store
+            Session["friend_id"] = lblfriend.Text;
+            Response.Redirect("Chat.aspx");
+            //Response.Redirect("chat.aspx?tabId=" + uniqueTabId);
         }
     }
 }

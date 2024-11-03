@@ -1,0 +1,933 @@
+﻿async code if required in future...
+<!--    <script type="text/javascript">
+        var $jq = jQuery.noConflict();
+        $jq(document).ready(function () {
+            window.sendMessage = async function () {
+                const uploadDiv = document.getElementById('upload');
+                uploadDiv.innerHTML = '';
+
+                const message = $jq('#<%= txtUserMessage.ClientID %>').val();
+        const fileInput = document.getElementById('<%= fileUploader.ClientID %>');
+        let imageBase64 = "";
+
+        if (fileInput.files && fileInput.files[0]) {
+            // Use async function to read the file
+            imageBase64 = await readFileAsync(fileInput.files[0]);
+            await sendAjaxMessage(message, imageBase64);
+        } else {
+            await sendAjaxMessage(message, '');
+        }
+
+        // Clear input fields after message is sent
+        $jq('#<%= txtUserMessage.ClientID %>').val('');
+        fileInput.value = ''; // Clear the file input
+        scrollToBottom(); // Scroll to bottom after appending the message
+    }
+
+    // Helper function to read file as a base64 string
+    async function readFileAsync(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Async function to handle AJAX request
+    async function sendAjaxMessage(message, imageBase64) {
+        try {
+            const response = await $jq.ajax({
+                type: "POST",
+                url: "chat.aspx/SaveMessage",
+                data: JSON.stringify({ msg: message, sender: 'user', img: imageBase64 }),
+                contentType: "application/json; charset=utf-8",
+                dataType: "json"
+            });
+
+            // Append user message to the right side in the container
+            if (message) {
+                $jq('#chatContainer').append('<div class="message right">' + message + '</div><div class="clearfix"></div>');
+            }
+        } catch (error) {
+            console.error("Error sending message:", error);
+        }
+    }
+
+    // Polling function to check for new messages
+    async function pollForMessages() {
+        try {
+            const response = await $jq.ajax({
+                type: "POST",
+                url: "chat.aspx/GetNewMessages",
+                data: JSON.stringify({}),
+                contentType: "application/json; charset=utf-8",
+                dataType: "json"
+            });
+
+            const messages = response.d;
+            for (const message of messages) {
+                $jq('#chatContainer').append('<div class="message left">' + message + '</div><div class="clearfix"></div>');
+                scrollToBottom(); // Scroll to bottom after appending the message
+            }
+        } catch (error) {
+            console.error("Error polling for messages:", error);
+        } finally {
+            setTimeout(pollForMessages, 2000); // Poll every 2 seconds
+        }
+    }
+
+    function scrollToBottom() {
+        const chatContainer = $jq('#chatContainer');
+        chatContainer.scrollTop(chatContainer[0].scrollHeight);
+    }
+
+    // Start polling for messages when the document is ready
+    pollForMessages();
+});
+
+    </script> -->
+
+
+    chat.aspx.cs::
+
+    //using System;
+//using System.Collections.Generic;
+//using System.Linq;
+//using System.Web;
+//using System.Web.UI;
+//using System.Web.UI.WebControls;
+//using System.Data;
+//using System.Configuration;
+//using System.Data.SqlClient;
+//using System.Web.Services;
+//using System.EnterpriseServices;
+//using System.Collections;
+//using Encryption;
+////using System.Security.Cryptography;
+////using System.Text;
+////using System.IO;
+
+//namespace ChatApplication
+//{
+//	public class ChatMessageC:\Users\001\source\repos\ChatApplication\ChatApplication\
+//	{
+//		public string chat_msg_text { get; set; }
+//		public string sender_id { get; set; }
+//		public string receiver_id { get; set; }
+//		public string time { get; set; }
+//		public string whose_msg { get; set; }//friends message or user message 
+//	}
+//	public partial class Chat : System.Web.UI.Page
+//	{
+//		private static byte[] longTermPrivateKey = GenerateLongTermPrivateKey();
+
+//		private static List<ChatMessage> chatting = new List<ChatMessage>();
+//		static string user_id;
+//		static string friend_id;
+
+//		protected void Page_Load(object sender, EventArgs e)
+//		{
+//			if (!IsPostBack)
+//			{
+//				string tabId = Request.QueryString["tabId"];
+
+//				if (tabId == null)
+//				{
+//					Response.Redirect("Login.aspx");
+//					return;
+//				}
+
+//				ViewState["tabId"] = tabId;
+
+//				if (Session["user_id" + tabId] == null || Session["friend_id" + tabId] == null)
+//				{
+//					Response.Redirect("Login.aspx");
+//				}
+
+//				user_id = Session["user_id" + tabId].ToString();
+//				friend_id = Session["friend_id" + tabId].ToString();
+
+//				LoadChatHistory();
+//			}
+//			else
+//			{
+//				string tabId = ViewState["tabId"] as string;
+//			}
+//		}
+
+//		//private static byte[] GenerateLongTermPrivateKey()
+//		//{
+//		//	using (var ecdh = new ECDiffieHellmanCng())
+//		//	{
+//		//		ecdh.KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash;
+//		//		ecdh.HashAlgorithm = CngAlgorithm.Sha256;
+//		//		return ecdh.Key.Export(CngKeyBlobFormat.EccPrivateBlob);
+//		//	}
+//		//}
+
+//		private void LoadChatHistory()
+//		{
+//			chatting.Clear();
+//			SqlConnection con = new SqlConnection();
+//			con.ConnectionString = ConfigurationManager.ConnectionStrings["userConnection"].ConnectionString;
+
+//			try
+//			{
+//				//no need of finally
+//				using (con)
+//				{
+//					//just to find username 
+//					string q1 = "select * from chatters where id=" + user_id;
+//					SqlCommand cmd1 = new SqlCommand(q1, con);
+//					con.Open();
+//					SqlDataReader rdr1 = cmd1.ExecuteReader();
+
+//					while (rdr1.Read())
+//						Response.Write("user:" + rdr1["name"].ToString());
+
+//					rdr1.Close();
+
+//					//sql query orderd by time and all chat between user and friend
+//					string command = "select * from Chat where sender_id = @p1 and receiver_id = @p2 or sender_id=@p2 and receiver_id = @p1 order by time";
+//					SqlCommand cmd = new SqlCommand(command, con);
+//					cmd.Parameters.AddWithValue("@p1", user_id);
+//					cmd.Parameters.AddWithValue("@p2", friend_id);
+//					SqlDataReader rdr = cmd.ExecuteReader();
+//					while (rdr.Read())
+//					{
+//						string decryptedMessage = EncryptionHelper.Decrypt(rdr["message"].ToString());
+
+//						ChatMessage message = new ChatMessage
+//						{
+//							chat_msg_text = decryptedMessage,
+//							sender_id = rdr["sender_id"].ToString(),
+//							receiver_id = rdr["receiver_id"].ToString(),
+//							time = rdr["time"].ToString(),
+//							whose_msg = (rdr["sender_id"].ToString() == user_id) ? "user" : "friend",
+//						};
+//						//Response.Write(message.chat_msg_text);
+//						chatting.Add(message);
+//					}
+//					rdr.Close();
+//				}
+//			}
+//			catch (Exception ex)
+//			{
+//				Response.Write("error:" + ex.ToString());
+//			}
+
+//			DisplayChatHistory();
+//		}
+//		private void DisplayChatHistory()
+//		{
+
+//			string combinedScript = @" <script>
+//                                           function appendMessage(message,sender) {
+//                                                     const chatContainer = document.getElementById('chatContainer');
+//                                                     const messageElement = document.createElement('div');
+//                                                     messageElement.classList.add('message');
+//                                                     messageElement.classList.add(sender === 'user' ? 'right' : 'left');
+//                                                     messageElement.textContent = message;
+//                                                     chatContainer.appendChild(messageElement);
+
+//                                                     const clearfix = document.createElement('div');
+//                                                     clearfix.classList.add('clearfix');
+//                                                     chatContainer.appendChild(clearfix);
+//                                           }";
+
+//			foreach (var message in chatting)
+//			{
+//				string msg = message.chat_msg_text;
+//				string sender = message.whose_msg;
+
+//				combinedScript += "appendMessage('" + msg + "','" + sender + "');";
+//			}
+//			combinedScript += "</script>";
+
+//			ClientScript.RegisterStartupScript(this.GetType(), "appendMessage", combinedScript, false);
+//		}
+
+//		[WebMethod]
+//		public static void SaveMessage(string msg, string sender, string tabId)
+//		{
+//			string r_id = HttpContext.Current.Session["friend_id" + tabId].ToString();
+//			string s_id = HttpContext.Current.Session["user_id" + tabId].ToString();
+
+//			// Generate a random conversation ID
+//			byte[] conversationId = Guid.NewGuid().ToByteArray();
+
+//			// Derive the ephemeral private key for the conversation
+//			byte[] ephemeralPrivateKey = ECDHKEHelper.DeriveEphemeralPrivateKey(longTermPrivateKey, conversationId);
+
+//			// Generate a shared secret key for the conversation
+//			byte[] sharedSecretKey = ECDHKEHelper.GenerateSharedKey(ephemeralPrivateKey, conversationId);
+
+//			// Encrypt the message using the shared secret key
+//			byte[] encryptedMessage = EncryptMessage(msg, sharedSecretKey);
+
+//			// Add the encrypted message to the chat history
+//			chatting.Add(new ChatMessage { chat_msg_text = Convert.ToBase64String(encryptedMessage), whose_msg = sender });
+
+//			// Save the encrypted message to the database
+//			SqlConnection con = new SqlConnection();
+//			con.ConnectionString = ConfigurationManager.ConnectionStrings["userConnection"].ConnectionString;
+
+//			try
+//			{
+//				using (con)
+//				{
+//					//string command = "insert into Chat (sender_id,receiver_id,message,time) values(@s_id,@r_id,@msg,@time)";
+//					//SqlCommand cmd = new SqlCommand(command, con);
+//					//cmd.Parameters.AddWithValue("@s_id", s_id);
+//					//cmd.Parameters.AddWithValue("@r_id", r_id);
+//					//cmd.Parameters.AddWithValue("@msg", Convert.ToBase64String(encryptedMessage));
+//					//DateTime localDate = DateTime.Now;
+//					//cmd.Parameters.AddWithValue("@time", localDate);
+
+//					//con.Open();
+//					//cmd.ExecuteNonQuery();
+//					//con.Close();
+//				}
+//			}
+//			catch (Exception ex)
+//			{
+//				Console.WriteLine(ex);
+//			}
+//		}
+
+//		[WebMethod]
+//		public static List<string> GetNewMessages(string tabId)
+//		{
+//			string user_id = HttpContext.Current.Session["user_id" + tabId].ToString();
+//			string friend_id = HttpContext.Current.Session["friend_id" + tabId].ToString();
+
+//			List<string> newMessages = new List<string>();
+
+//			SqlConnection con = new SqlConnection();
+//			con.ConnectionString = ConfigurationManager.ConnectionStrings["userConnection"].ConnectionString;
+
+//			try
+//			{
+//				using (con)
+//				{
+//					string query = "SELECT message FROM chat WHERE sender_id=@friend_id and receiver_id=@user_id and time >= DATEADD(second, -2, GETDATE()) ORDER BY time";
+//					SqlCommand cmd = new SqlCommand(query, con);
+//					cmd.Parameters.AddWithValue("@user_id", user_id);
+//					cmd.Parameters.AddWithValue("@friend_id", friend_id);
+
+//					con.Open();
+//					SqlDataReader rdr = cmd.ExecuteReader();
+
+//					while (rdr.Read())
+//					{
+//						byte[] encryptedMessage = Convert.FromBase64String(rdr["message"].ToString());
+
+//						// Generate a random conversation ID or retrieve it from storage
+//						byte[] conversationId = GetConversationId(user_id, friend_id);
+
+//						// Derive the ephemeral private key for the conversation
+//						byte[] ephemeralPrivateKey = ECDHKEHelper.DeriveEphemeralPrivateKey(longTermPrivateKey, conversationId);
+
+//						// Generate a shared secret key for the conversation
+//						byte[] sharedSecretKey = ECDHKEHelper.GenerateSharedKey(ephemeralPrivateKey, conversationId);
+
+//						// Decrypt the message using the shared secret key
+//						string decryptedMessage = DecryptMessage(encryptedMessage, sharedSecretKey);
+
+//						newMessages.Add(decryptedMessage);
+//						Console.Write(decryptedMessage);
+//					}
+//				}
+//			}
+//			catch (Exception e)
+//			{
+//				Console.Write("error: " + e);
+//				newMessages.Add(e.ToString());
+//			}
+//			return newMessages;
+//		}
+
+//		private static byte[] GetConversationId(string userId, string friendId)
+//		{
+//			// Logic to generate or retrieve a conversation ID
+//			return Encoding.UTF8.GetBytes(userId + friendId); // Example approach
+//		}
+
+
+//		private static byte[] EncryptMessage(string message, byte[] sharedSecretKey)
+//		{
+//			using (var aes = new AesCng())
+//			{
+//				aes.Key = sharedSecretKey;
+//				aes.GenerateIV(); // Generates a new IV for every encryption
+
+//				using (var encryptor = aes.CreateEncryptor(aes.Key, aes.IV))
+//				using (var ms = new MemoryStream())
+//				{
+//					ms.Write(aes.IV, 0, aes.IV.Length); // Write IV to the beginning of the stream
+//					using (var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
+//					using (var sw = new StreamWriter(cs))
+//					{
+//						sw.Write(message);
+//					}
+//					return ms.ToArray();
+//				}
+//			}
+//		}
+
+//		private static string DecryptMessage(byte[] encryptedMessage, byte[] sharedSecretKey)
+//		{
+//			using (var aes = new AesCng())
+//			{
+//				aes.Key = sharedSecretKey;
+
+//				using (var ms = new MemoryStream(encryptedMessage))
+//				{
+//					byte[] iv = new byte[aes.BlockSize / 8];
+//					ms.Read(iv, 0, iv.Length); // Read the IV from the beginning of the stream
+//					aes.IV = iv;
+
+//					using (var decryptor = aes.CreateDecryptor(aes.Key, aes.IV))
+//					using (var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read))
+//					using (var sr = new StreamReader(cs))
+//					{
+//						return sr.ReadToEnd();
+//					}
+//				}
+//			}
+//		}
+
+//	}
+//}
+
+
+
+//GetMessage::
+public static List<string> GetNewMessages()
+		{
+			string user_id = HttpContext.Current.Session["user_id"].ToString();
+			string friend_id = HttpContext.Current.Session["friend_id"].ToString();
+
+			List<string> newMessages = new List<string>();
+
+			SqlConnection con = new SqlConnection();
+			con.ConnectionString = ConfigurationManager.ConnectionStrings["userConnection"].ConnectionString;
+
+			try
+			{
+
+				using (con)
+				{
+					string query = "SELECT message FROM chat WHERE sender_id=@friend_id and receiver_id=@user_id and time >= DATEADD(second, -2, GETDATE()) ORDER BY time";
+					SqlCommand cmd = new SqlCommand(query, con);
+					cmd.Parameters.AddWithValue("@user_id", user_id);
+					cmd.Parameters.AddWithValue("@friend_id", friend_id);
+
+					con.Open();
+					SqlDataReader rdr = cmd.ExecuteReader();
+
+					while (rdr.Read())
+					{
+						newMessages.Add(rdr["message"].ToString());
+						Console.Write(rdr["message"].ToString());
+					}
+				}
+
+			}
+			catch (Exception e)
+			{
+				Console.Write("error: " + e);
+				newMessages.Add(e.ToString());
+			}
+			return newMessages;
+		}
+
+
+        //GetMessage in PollMessage in aspx
+         success: function (response) {
+        var messages = response.d;
+        for (var i = 0; i < messages.length; i++) {
+            var message = messages[i];
+            var messageHtml = '<div class="message left">';
+
+            // Check if there's text in the message
+            if (message.MessageText) {
+                messageHtml += '<p>' + message.MessageText + '</p>';
+            }
+
+            // Check if there's an image and add it if available
+            if (message.ImageBase64) {
+                messageHtml += '<img src="data:image/png;base64,' + message.ImageBase64 + '" alt="image" style="max-width: 100px; max-height: 100px;" />';
+            }
+
+            messageHtml += '</div><div class="clearfix"></div>';
+            $jq('#chatContainer').append(messageHtml);
+
+            scrollToBottom(); // Scroll to bottom after appending the message
+        }
+
+
+        //chat.aspx
+        <%@ Page Language="C#" AutoEventWireup="true" CodeBehind="Chat.aspx.cs" Inherits="ChatApplication.Chat" %>
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head runat="server">
+    <title>Chat Application</title>
+     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+ <style>
+     #chatContainer {
+         border: 1px solid #ccc;
+         width: 300px;
+         height: 400px;
+         overflow-y: auto;
+         margin-bottom: 10px;
+         padding: 10px;
+     }
+     .message {
+         padding: 5px;
+         margin: 5px 0;
+         border-radius: 5px;
+         max-width: 200px;
+     }
+     .left {
+         background-color: #e0f7fa;
+         text-align: left;
+         float: left;
+         clear: both;
+     }
+     .right {
+         background-color: #c8e6c9;
+         text-align: right;
+         float: right;
+         clear: both;
+     }
+     .clearfix {
+         clear: both;
+     }
+ </style>
+</head>
+<body>
+
+    <form id="form1" runat="server">
+        <script type="text/javascript">
+            //function appendMessageToChat(tempmsg) {
+            //    var chatContainer = document.getElementById('chatContainer');
+
+            //    // Create a new div element
+            //    var newDiv = document.createElement('div');
+
+            //    // Set the content of the new div
+            //    newDiv.innerHTML = tempmsg;
+
+            //    // Append the new div to the chat container
+            //    chatContainer.appendChild(newDiv);
+
+            //    // Optionally, scroll to the bottom to show the new message
+            //    chatContainer.scrollTop = chatContainer.scrollHeight;
+            //}
+        </script>
+        <div id="chatContainer">
+        </div>
+        <div id="upload" style="margin-top:20px;"></div>
+        <br />
+        <img src="Images/attach.png" alt="Attach File" style="width:24px; cursor:pointer; vertical-align:middle;" onclick="triggerFileUpload();" />
+        <asp:FileUpload ID="fileUploader" runat="server" Style="display:none;"  OnChange="previewFile()" />
+        <asp:TextBox ID="txtUserMessage" runat="server" Width="200px" Placeholder="User's message"></asp:TextBox>
+        <asp:Button ID="btnSender" runat="server" Text="Send" OnClientClick="sendMessage(); return false;" />
+    </form>
+    
+    <script>
+        function previewFile() {
+            const fileInput = document.getElementById('<%= fileUploader.ClientID %>');
+           const file = fileInput.files[0];
+            const uploadDiv = document.getElementById('upload');
+            uploadDiv.innerHTML = '';
+
+            if (file && file.type ) {
+                const fileType = file.type;
+                const fileReader = new FileReader();
+
+                if (fileType.startsWith("image/")) {
+                    fileReader.onload = function (e) {
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.style.maxWidth = "80px";
+                        img.style.maxHeight = "80px"
+                        uploadDiv.appendChild(img);
+                    };
+                    fileReader.readAsDataURL(file);
+                } else {
+                    uploadDiv.innerHTML = "<p>Unsupported file format.</p>";
+                }
+            }
+        }
+    </script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script type="text/javascript">
+        //scrollToBottom();       
+        var $jq = jQuery.noConflict(); 
+        $jq(document).ready(function () {
+            window.sendMessage = function () {
+
+                const uploadDiv = document.getElementById('upload');
+                uploadDiv.innerHTML = '';
+
+                var message = $('#<%= txtUserMessage.ClientID %>').val();
+                var fileInput = document.getElementById('<%= fileUploader.ClientID %>');
+                var imageBase64 = "";
+
+                if (fileInput.files && fileInput.files[0]) {
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+
+                        imageBase64 = e.target.result.split(',')[1];
+
+                        $.ajax({
+                            type: "POST",
+                            url: "chat.aspx/SaveMessage",
+                            data: JSON.stringify({ msg: message, sender: 'user', img: imageBase64 }),
+                            contentType: "application/json; charset=utf-8",
+                            dataType: "json",
+                            success: function (response) {
+                                $('#chatContainer').append(`
+                                  <div class="message right">
+                                     <img src="data:image/png;base64,${imageBase64}" alt="image" style="max-width: 100px; max-height: 100px;" />
+                                     <p>${message}</p>
+                                  </div>
+                                  <div class="clearfix"></div>
+                                `);
+
+                                $('#<%= txtUserMessage.ClientID %>').val('');
+                                fileInput.files = null;
+                                scrollToBottom(); // Scroll to bottom after appending the message
+                            }
+                        });
+                    }
+                    reader.readAsDataURL(fileInput.files[0]);
+                } else {
+                    $.ajax({
+                        type: "POST",
+                        url: "chat.aspx/SaveMessage",
+                        data: JSON.stringify({ msg: message, sender: 'user', img: '' }),
+                        contentType: "application/json; charset=utf-8",
+                        dataType: "json",
+                        success: function (response) {
+                            //append user message to right side in container
+                            if (message) {
+                                $('#chatContainer').append('<div class="message right">' + message + '</div><div class="clearfix"></div>');
+                            }
+                            $('#<%= txtUserMessage.ClientID %>').val('');
+                            scrollToBottom(); // Scroll to bottom after appending the message
+                        }
+                    });
+                }
+            }
+
+            function pollForMessages() {
+
+                console.log("...");
+                $.ajax({
+                    type: "POST",
+                    url: "chat.aspx/GetNewMessages",
+                    data: JSON.stringify({}),
+                    contentType: "application/json; charset=utf-8",
+                    dataType: "json",
+                    success: function (response) {
+                        var messages = response.d;
+                        for (var i = 0; i < messages.length; i++) {
+                            var message = messages[i];
+                            // Append friend message to left side in container
+                            $jq('#chatContainer').append('<div class="message left">' + message + '</div><div class="clearfix"></div>');
+                            scrollToBottom(); // Scroll to bottom after appending the message   
+                        }
+                    },
+                    complete: function () {
+                        setTimeout(pollForMessages, 2000);
+                    }//every 2 second
+                });
+            }
+        }
+
+    </script>
+
+    <script>
+        function triggerFileUpload() {
+            document.getElementById('<%= fileUploader.ClientID %>').click();
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+v2.chat.aspx
+
+﻿<%@ Page Language="C#" AutoEventWireup="true" CodeBehind="Chat.aspx.cs" Inherits="ChatApplication.Chat" %>
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head runat="server">
+    <title>Chat Application</title>
+     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+ <style>
+     #chatContainer {
+         border: 1px solid #ccc;
+         width: 300px;
+         height: 400px;
+         overflow-y: auto;
+         margin-bottom: 10px;
+         padding: 10px;
+     }
+     .message {
+         padding: 5px;
+         margin: 5px 0;
+         border-radius: 5px;
+         max-width: 200px;
+     }
+     .left {
+         background-color: #e0f7fa;
+         text-align: left;
+         float: left;
+         clear: both;
+     }
+     .right {
+         background-color: #c8e6c9;
+         text-align: right;
+         float: right;
+         clear: both;
+     }
+     .clearfix {
+         clear: both;
+     }
+ </style>
+</head>
+<body>
+     
+    <form id="form1" runat="server">
+        <div id="chatContainer"></div>
+        <div id="upload" style="margin-top:20px;"></div>
+        <br />
+        <img src="Images/attach.png" alt="Attach File" style="width:24px; cursor:pointer; vertical-align:middle;" onclick="triggerFileUpload();" />
+        <asp:FileUpload ID="fileUploader" runat="server" Style="display:none;"  OnChange="previewFile()" />
+        <asp:TextBox ID="txtUserMessage" runat="server" Width="200px" Placeholder="User's message"></asp:TextBox>
+        <asp:Button ID="btnSender" runat="server" Text="Send" OnClientClick="sendMessage(); return false;" />
+    </form>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+        function triggerFileUpload() {
+            document.getElementById('<%= fileUploader.ClientID %>').click();
+        }
+
+        function appendMessageToChat(tempmsg) {
+            var chatContainer = document.getElementById('chatContainer');
+
+            // Create a new div element
+            var newDiv = document.createElement('div');
+
+            // Set the content of the new div
+            newDiv.innerHTML = tempmsg;
+
+            // Append the new div to the chat container
+            chatContainer.appendChild(newDiv);
+
+            // Optionally, scroll to the bottom to show the new message
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function previewFile() {
+            const fileInput = document.getElementById('<%= fileUploader.ClientID %>');
+            const file = fileInput.files[0];
+            const uploadDiv = document.getElementById('upload');
+            uploadDiv.innerHTML = '';
+
+            if (file && file.type) {
+                const fileType = file.type;
+                const fileReader = new FileReader();
+
+                if (fileType.startsWith("image/")) {
+                    fileReader.onload = function (e) {
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.style.maxWidth = "80px";
+                        img.style.maxHeight = "80px"
+                        uploadDiv.appendChild(img);
+                    };
+                    fileReader.readAsDataURL(file);
+                } else {
+                    uploadDiv.innerHTML = "<p>Unsupported file format.</p>";
+                }
+            }
+        }
+    </script>
+    <script type="text/javascript">
+        var $jq = jQuery.noConflict();
+        $jq(document).ready(function () {
+
+            window.sendMessage = function () {
+                const uploadDiv = document.getElementById('upload');
+                uploadDiv.innerHTML = '';
+
+                var message = $('#<%= txtUserMessage.ClientID %>').val();
+                var fileInput = document.getElementById('<%= fileUploader.ClientID %>');
+                var imageBase64 = "";
+                if (fileInput.files && fileInput.files[0]) {
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+
+                        imageBase64 = e.target.result.split(',')[1];
+
+                        $.ajax({
+                            type: "POST",
+                            url: "chat.aspx/SaveMessage",
+                            data: JSON.stringify({ msg: message, sender: 'user', img: imageBase64 }),
+                            contentType: "application/json; charset=utf-8",
+                            dataType: "json",
+                            success: function (response) {
+                                $('#chatContainer').append(`
+                                  <div class="message right">
+                                     <img src="data:image/png;base64,${imageBase64}" alt="image" style="max-width: 100px; max-height: 100px;" />
+                                     <p>${message}</p>
+                                  </div>
+                                  <div class="clearfix"></div>
+                                `);
+
+                                $('#<%= txtUserMessage.ClientID %>').val('');
+                                fileInput.files = null;
+                                scrollToBottom(); // Scroll to bottom after appending the message
+                            }
+                        });
+                    }
+                    reader.readAsDataURL(fileInput.files[0]);
+                } else {
+                    $.ajax({
+                        type: "POST",
+                        url: "chat.aspx/SaveMessage",
+                        data: JSON.stringify({ msg: message, sender: 'user', img: '' }),
+                        contentType: "application/json; charset=utf-8",
+                        dataType: "json",
+                        success: function (response) {
+                            //append user message to right side in container
+                            if (message) {
+                                $('#chatContainer').append('<div class="message right">' + message + '</div><div class="clearfix"></div>');
+                            }
+                            $('#<%= txtUserMessage.ClientID %>').val('');
+                            scrollToBottom(); // Scroll to bottom after appending the message
+                        }
+                    });
+                }
+
+            }
+
+            function pollForMessages() {
+                
+            }
+
+            function scrollToBottom() {
+                var chatContainer = $jq('#chatContainer');
+                chatContainer.scrollTop(chatContainer[0].scrollHeight);
+            }
+
+            $(document).ready(function () {
+                pollForMessages();
+            });
+
+
+        });
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+if (fileType === 'application/pdf') {
+
+                                        // Create PDF preview container
+                                        const chatContainer = document.getElementById('chatContainer');
+                                        // Initialize the handler with your base64 data
+                                        // Create message wrapper and set classes
+                                        const messageWrapper = document.createElement('div');
+                                        messageWrapper.classList.add('message');
+                                        messageWrapper.classList.add('right');
+
+                                        const pdfContainer = document.createElement('div');
+                                        pdfContainer.classList.add('pdf-container');
+
+                                        const pdfPreview = document.createElement('div');
+                                        pdfPreview.classList.add('pdf-preview');
+                                        pdfPreview.innerHTML = `<div class="pdf-icon">📄</div><div class="pdf-filename">${fileName}</div>`;
+
+                                        pdfContainer.appendChild(pdfPreview);
+                                        messageWrapper.appendChild(pdfContainer);
+  
+
+
+                                             //Create button container
+                                            const buttonContainer = document.createElement('div');
+                                            buttonContainer.classList.add('pdf-buttons');
+
+                                            // Create Open button
+                                            const openButton = document.createElement('button');
+                                            openButton.classList.add('pdf-button', 'open-button');
+                                            openButton.innerHTML = '👁️ Open';
+                                            openButton.onclick = function () {
+                                            pdfHandler.openPDF();
+                                                 //Create blob and open PDF in new tab
+                                                const byteCharacters = atob(imageBase64);
+                                                const byteNumbers = new Array(byteCharacters.length);
+                                                for (let i = 0; i < byteCharacters.length; i++) {
+                                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                                }
+                                                const byteArray = new Uint8Array(byteNumbers);
+                                                const blob = new Blob([byteArray], { type: 'application/pdf' });
+                                                const pdfUrl = URL.createObjectURL(blob);
+                                                window.open(pdfUrl, '_blank');
+                                            };
+
+                                             //Create Save As button
+                                            const saveButton = document.createElement('button');
+                                            saveButton.classList.add('pdf-button', 'save-button');
+                                            saveButton.innerHTML = '💾 Save As';
+                                            saveButton.onclick = function () {
+                                            pdfHandler.savePDF();
+                                                 //Create blob and trigger download
+                                                const byteCharacters = atob(imageBase64);
+                                                const byteNumbers = new Array(byteCharacters.length);
+                                                for (let i = 0; i < byteCharacters.length; i++) {
+                                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                                }
+                                                const byteArray = new Uint8Array(byteNumbers);
+                                                const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+                                                // Create download link and trigger click
+                                                const downloadLink = document.createElement('a');
+                                                downloadLink.href = URL.createObjectURL(blob);
+                                                downloadLink.download = fileName || 'document.pdf';
+                                                document.body.appendChild(downloadLink);
+                                                downloadLink.click();
+                                                document.body.removeChild(downloadLink);
+                                                URL.revokeObjectURL(downloadLink.href);
+                                            };
+
+                                             //Add buttons to container
+                                            buttonContainer.appendChild(openButton);
+                                            buttonContainer.appendChild(saveButton);
+
+                                             //Add elements to PDF container
+                                            pdfContainer.appendChild(buttonContainer);
+                                              
+                                        const pdfHandler = new PDFHandler(imageBase64,fileName, messageWrapper);
+                                        chatContainer.appendChild(messageWrapper);
